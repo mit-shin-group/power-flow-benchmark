@@ -1,0 +1,25 @@
+#Adds power generation fixing and load shedding
+
+
+
+
+function build_augmented_opf(filename, flex, c_shed, pg_sol; backend=nothing)
+    parsed_data = parse_matpower(filename; library=:pglib); 
+    L_pg = length(parsed_data.gen)
+    L_bus = length(parsed_data.bus)
+
+    fixed_generators = [(i=i, g=pg_sol[i]) for i in setdiff(1:L_pg, flex)]
+    function augment_opf(core, vars, cons)
+        p_shed = variable(core, L_bus; lvar = 0)
+        q_shed = variable(core, L_bus; lvar = 0)
+        o_shed = objective(core, c_shed*(p_shed[i]+q_shed[i]) for i in 1:L_bus)
+        c_active_power_balance_shed = constraint!(core, cons.c_active_power_balance, i => -p_shed[i] for i in 1:L_bus)
+        c_reactive_power_balance_shed = constraint!(core, cons.c_reactive_power_balance, i => -q_shed[i] for i in 1:L_bus)
+
+        pg = vars.pg
+        c_pg_fix = constraint(core, pg[fg.i] - fg.g for fg in fixed_generators)
+        return ((p_shed=p_shed,), (c_pg_fix=c_pg_fix,))
+    end
+    model, vars, cons = opf_model(filename; user_callback = augment_opf, backend=backend)
+    return model, vars, cons
+end

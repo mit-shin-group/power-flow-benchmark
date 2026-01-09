@@ -1,2 +1,3 @@
 [deps]
 ExaModelsPower = "2fff4b78-0b6c-428d-bac8-85ccea8c4bdf"
+ExaPowerIO = "14903efe-9500-4d7f-a589-7ab7e15da6de"
