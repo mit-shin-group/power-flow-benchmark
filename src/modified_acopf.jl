@@ -7,8 +7,10 @@ function build_augmented_opf(filename, flex, c_shed, pg_sol; backend=nothing)
     parsed_data = parse_matpower(filename; library=:pglib); 
     L_pg = length(parsed_data.gen)
     L_bus = length(parsed_data.bus)
+    pg_sol = Array(pg_sol)
 
     fixed_generators = [(i=i, g=pg_sol[i]) for i in setdiff(1:L_pg, flex)]
+    println(fixed_generators)
     function augment_opf(core, vars, cons)
         p_shed = variable(core, L_bus; lvar = 0)
         q_shed = variable(core, L_bus; lvar = 0)
@@ -18,8 +20,8 @@ function build_augmented_opf(filename, flex, c_shed, pg_sol; backend=nothing)
 
         pg = vars.pg
         c_pg_fix = constraint(core, pg[fg.i] - fg.g for fg in fixed_generators)
-        return ((p_shed=p_shed,), (c_pg_fix=c_pg_fix,))
+        return ((p_shed=p_shed, q_shed=q_shed,), (c_pg_fix=c_pg_fix,))
     end
-    model, vars, cons = opf_model(filename; user_callback = augment_opf, backend=backend)
+    model, vars, cons = ac_opf_model(filename; user_callback = augment_opf, backend=backend)
     return model, vars, cons
 end
