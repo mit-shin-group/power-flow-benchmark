@@ -1,7 +1,7 @@
 using DataFrames, CSV, Plots, ExaModels, ExaModelsPower, MadNLP, MadNLPGPU, ExaPowerIO, CUDA
 
 function find_shedding_limits(pg_solutions, filename, save_filename; max_samples=30)
-    parsed_data = parse_matpower(filename; library=:pglib)
+    parsed_data = ExaPowerIO.parse_matpower(filename; library=:pglib)
     df = DataFrame(
             initial_solution = String[],
             nflex = Int[],
@@ -21,9 +21,9 @@ function find_shedding_limits(pg_solutions, filename, save_filename; max_samples
 
 
     if L_gen ≤ max_samples
-        gen_range = collect(0:L_gen)
+        gen_range = collect(0:L_gen+1)
     else
-        gen_range = unique(round.(Int, range(0, L_gen, length=max_samples)))
+        gen_range = unique(round.(Int, range(0, L_gen+1, length=max_samples)))
         
     end
     
@@ -42,7 +42,7 @@ function find_shedding_limits(pg_solutions, filename, save_filename; max_samples
                 #this needs to check if solver converged
                 if result.status == MadNLP.SOLVE_SUCCEEDED
                     j = 4
-                    push!(df, [sol_tuple.initial_method, length(flex_generators), result.objective, sum(p_sheds), maximum(p_sheds), sum(q_sheds), maximum(q_sheds)])
+                    push!(df, [sol_tuple.initial_method, length(flex_generators), result.objective, sum(abs.(p_sheds)), maximum(abs.(p_sheds)), sum(abs.(q_sheds)), maximum(abs.(q_sheds))])
                 else 
                     j += 1
                 end
@@ -82,6 +82,8 @@ function plot_nflex_vs_y(
     ylabel::AbstractString = ycol,
     title::AbstractString = ""
 )
+    gr()              # reinitialize backend
+    Plots.closeall() 
 
     df = CSV.read(csvfile, DataFrame)
 
@@ -90,13 +92,6 @@ function plot_nflex_vs_y(
     @assert "nflex" in names(df)
     @assert ycol in names(df)
 
-    xmin = minimum(df.nflex)
-    xmax = maximum(df.nflex)
-
-    # ensure strictly positive width
-    if xmin == xmax
-        xmax = xmin + 1
-    end
 
 
     p = plot(
@@ -105,7 +100,6 @@ function plot_nflex_vs_y(
         yscale = :log10,
         title = title,
         legend = :best,
-        #xlims = (xmin, xmax),
     )
 
     for sol in unique(df.initial_solution)
@@ -121,6 +115,5 @@ function plot_nflex_vs_y(
         )
     end
 
-    savefig(p, savepath)
-    return p
+    savefig(p, savepath*".png")
 end

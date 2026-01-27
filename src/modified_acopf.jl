@@ -1,10 +1,10 @@
 #Adds power generation fixing and load shedding
 
-
+using PowerModels, Ipopt
 
 
 function build_augmented_opf(filename, flex, c_shed, pg_sol; backend=nothing)
-    parsed_data = parse_matpower(filename; library=:pglib); 
+    parsed_data = ExaPowerIO.parse_matpower(filename; library=:pglib); 
     L_pg = length(parsed_data.gen)
     L_bus = length(parsed_data.bus)
 
@@ -42,4 +42,13 @@ function build_augmented_opf(filename, flex, c_shed, pg_sol; backend=nothing)
         return ((p_shed=p_shed, q_shed=q_shed, p_shed_pos, p_shed_neg, q_shed_pos, q_shed_neg,), (c_pg_fix=c_pg_fix, c_p_shed_positive=c_p_shed_positive, c_p_shed_negative=c_p_shed_negative, c_q_shed_positive=c_q_shed_positive, c_q_shed_negative=c_q_shed_negative,))
     end
     return ac_opf_model(filename; user_callback = augment_opf, backend=backend)
+end
+
+function powermodels_pg_result(filename, model_type)
+    result = solve_opf(filename, model_type, Ipopt.Optimizer)
+    gen_results = []
+    for i in 1:length(result["solution"]["gen"])
+        append!(gen_results, result["solution"]["gen"][string(i)]["pg"])
+    end
+    return gen_results
 end
