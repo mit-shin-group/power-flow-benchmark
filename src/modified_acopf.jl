@@ -4,7 +4,7 @@ using PowerModels, Ipopt
 
 
 function build_augmented_opf(filename, flex, c_shed, pg_sol; backend=nothing)
-    parsed_data = ExaPowerIO.parse_matpower(filename; library=:pglib); 
+    parsed_data = ExaPowerIO.parse_matpower(filename;)# library=:pglib); 
     L_pg = length(parsed_data.gen)
     L_bus = length(parsed_data.bus)
 
@@ -46,8 +46,8 @@ end
 
 function powermodels_pg_result(filename, model_type)
     result = solve_opf(filename, model_type, Ipopt.Optimizer)
-    gen_results = []
-    for i in 1:length(result["solution"]["gen"])
+    gen_results = Float64[]
+    for i in sort(parse.(Int, keys(result["solution"]["gen"])))
         append!(gen_results, result["solution"]["gen"][string(i)]["pg"])
     end
     return gen_results
