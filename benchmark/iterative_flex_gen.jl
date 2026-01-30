@@ -1,6 +1,6 @@
 using DataFrames, CSV, Plots, ExaModels, ExaModelsPower, MadNLP, MadNLPGPU, ExaPowerIO, CUDA
 
-function find_shedding_limits(pg_solutions, filename, save_filename; max_samples=30, gen_range= [])
+function find_shedding_limits(pg_solutions, filename, save_filename; max_samples=30, generator_order= [])
     parsed_data = ExaPowerIO.parse_matpower(filename;)# library=:pglib)
     df = DataFrame(
             initial_solution = String[],
@@ -15,27 +15,35 @@ function find_shedding_limits(pg_solutions, filename, save_filename; max_samples
     gens = parsed_data.gen
     L_gen = length(parsed_data.gen)
 
-    generator_order = reverse(sort(1:length(gens), by = i -> gens[i].pmax))
+    if isempty(generator_order)
+        generator_order = reverse(sort(1:length(gens), by = i -> gens[i].pmax))
+    end
 
     flex_generators = Int[]
 
 
-    if isempty(gen_range)
-        if L_gen ≤ max_samples
-            gen_range = collect(0:L_gen+1)
-        else
-            gen_range = unique(round.(Int, range(0, L_gen+1, length=max_samples)))
-        end
+    if L_gen ≤ max_samples
+        gen_range = collect(0:L_gen)
+    else
+        gen_range = unique(round.(Int, range(0, L_gen, length=max_samples)))
     end
+
     
     for sol_tuple in pg_solutions
-        flex_generators = Int[]
         for gen in gen_range
             j=0
+            if gen == 1   
+                flex_generators = [generator_order[1]]
+            elseif gen == 0
+                flex_generators = Int[]
+            else
+                flex_generators = generator_order[1:gen]
+            end
             while j < 3
             
                 println(length(flex_generators))
                 println(sol_tuple.initial_method)
+                println(gen)
                 m_mod, v_mod, c_mod = build_augmented_opf(filename, flex_generators, 1e6, sol_tuple.pg_sol; backend = CUDABackend())
                 result = madnlp(m_mod, tol=1e-8)
                 p_sheds = Array(solution(result, v_mod.p_shed))
@@ -47,11 +55,6 @@ function find_shedding_limits(pg_solutions, filename, save_filename; max_samples
                 else 
                     j += 1
                 end
-            end
-            if isempty(flex_generators)
-                flex_generators = [1]
-            else
-                append!(flex_generators, (maximum(flex_generators) + 1):gen)
             end
         end
     end
@@ -82,7 +85,7 @@ function test_ac_dc_combo(filename, case_name; max_samples=30, ac_order = false)
         ac_ordered_gens = []
     end
 
-    find_shedding_limits([tight_tuple, loose_tuple, dc_tuple, socwr_tuple, qcrm_tuple], filename, case_name; max_samples=max_samples, gen_range=ac_ordered_gens)
+    find_shedding_limits([tight_tuple, loose_tuple, dc_tuple, socwr_tuple, qcrm_tuple], filename, case_name; max_samples=max_samples, generator_order=ac_ordered_gens)
     plot_nflex_vs_y(saved_filename, "obj", "data/"*case_name*"_obj_samples"*string(max_samples); title=case_name*" obj vs flexible generators w/ max samples = "*string(max_samples))
     plot_nflex_vs_y(saved_filename, "total_pshed", "data/"*case_name*"_p_tot_samples"*string(max_samples); title=case_name*" total p shed vs flexible generators w/ max samples = "*string(max_samples))
     plot_nflex_vs_y(saved_filename, "max_pshed", "data/"*case_name*"_p_max_samples"*string(max_samples); title=case_name*" max p shed vs flexible generators w/ max samples = "*string(max_samples))
