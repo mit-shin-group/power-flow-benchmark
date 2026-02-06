@@ -35,7 +35,6 @@ function augmented_opf_L1(filename, c_shed, pg_sol, lambda; backend=nothing)
         p_diff_pos = variable(core, L_pg; lvar=0)
         p_diff_neg = variable(core, L_pg; lvar=0)
 
-        println(pg_sol)
 
         fixed_generators = [
                             (i = i,
@@ -103,4 +102,43 @@ function powermodels_pg_result(filename, model_type)
         append!(gen_results, result["solution"]["gen"][string(i)]["pg"])
     end
     return gen_results
+end
+
+function find_best_ordering(filename, pg_sol; c_shed=1e6, backend = CUDABackend())
+    parsed_data = ExaPowerIO.parse_matpower(filename;)
+    L_pg = length(parsed_data.gen)
+
+    m_base, v_base, c_base = augmented_opf_L1(filename, c_shed, pg_sol, 0; backend=backend)
+    result_base = madnlp(m_base, tol=1e-8)
+    base_vector = findall(>(1e-7), abs.(Array(solution(result_base, v_base.p_diff))))
+
+    ordered_gens = []
+    L1 = 1e6
+
+    count_limit = 0
+
+    #keep building list until matches the list with no L1 penalty
+    while !isempty(setdiff(base_vector, ordered_gens)) && count_limit < 20
+        m_aug, v_aug, c_aug = augmented_opf_L1(filename, c_shed, pg_sol, L1; backend=backend)
+        result_aug = madnlp(m_aug, tol=1e-8)
+        best_gens = findall(>(1e-7), abs.(Array(solution(result_aug, v_aug.p_diff))))
+        to_add = setdiff(best_gens, ordered_gens)
+        if length(to_add) < 2
+            append!(ordered_gens, to_add)
+        else
+            #sort to add by max p
+
+            append!(ordered_gens, to_add)
+        end
+
+        count_limit += 1
+        L1 = L1/2
+    end
+
+
+    to_add = setdiff(ordered_gens, 1:L_pg)
+    #sort this bad boy
+    append!(ordered_gens, to_add)
+
+    return ordered_gens
 end
