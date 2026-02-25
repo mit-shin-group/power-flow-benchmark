@@ -104,6 +104,10 @@ function powermodels_pg_result(filename, model_type)
     return gen_results
 end
 
+function order_gens(pgs, gens)
+    return reverse(sort(pgs, by = i -> gens[i].pmax))
+end
+
 function find_best_ordering(filename, pg_sol; c_shed=1e6, backend = CUDABackend())
     parsed_data = ExaPowerIO.parse_matpower(filename;)
     L_pg = length(parsed_data.gen)
@@ -112,7 +116,7 @@ function find_best_ordering(filename, pg_sol; c_shed=1e6, backend = CUDABackend(
     result_base = madnlp(m_base, tol=1e-8)
     base_vector = findall(>(1e-7), abs.(Array(solution(result_base, v_base.p_diff))))
 
-    ordered_gens = []
+    ordered_gens = Int[]
     L1 = 1e6
 
     count_limit = 0
@@ -126,7 +130,7 @@ function find_best_ordering(filename, pg_sol; c_shed=1e6, backend = CUDABackend(
         if length(to_add) < 2
             append!(ordered_gens, to_add)
         else
-            #sort to add by max p
+            to_add = order_gens(to_add, parsed_data.gen)
 
             append!(ordered_gens, to_add)
         end
@@ -136,8 +140,8 @@ function find_best_ordering(filename, pg_sol; c_shed=1e6, backend = CUDABackend(
     end
 
 
-    to_add = setdiff(ordered_gens, 1:L_pg)
-    #sort this bad boy
+    to_add = setdiff(1:L_pg, ordered_gens)
+    to_add = order_gens(to_add, parsed_data.gen)
     append!(ordered_gens, to_add)
 
     return ordered_gens
