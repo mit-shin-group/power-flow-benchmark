@@ -1,7 +1,6 @@
 module ExaPowerAnalysis
 
-export hello
-
-hello() = println("Hello, Julia!")
+include("benchmark/iterative_flex_gen.jl") 
+include("src/modified_acopf.jl")
 
 end
