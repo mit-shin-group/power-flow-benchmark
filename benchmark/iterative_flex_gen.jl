@@ -1,6 +1,6 @@
 using DataFrames, CSV, Plots, ExaModels, ExaModelsPower, MadNLP, MadNLPGPU, ExaPowerIO, CUDA
 
-function find_shedding_limits(pg_solutions, filename, save_filename; max_samples=30, generator_order= [])
+function find_shedding_limits(pg_solutions, filename, save_filename; max_samples=30, generator_order= [], best_order = false)
     parsed_data = ExaPowerIO.parse_matpower(filename;)# library=:pglib)
     df = DataFrame(
             initial_solution = String[],
@@ -30,6 +30,10 @@ function find_shedding_limits(pg_solutions, filename, save_filename; max_samples
 
     
     for sol_tuple in pg_solutions
+        if best_order
+            generator_order = find_best_ordering(filename, sol_tuple.pg_sol)
+        end
+
         for gen in gen_range
             j=0
             if gen == 1   
@@ -62,7 +66,7 @@ function find_shedding_limits(pg_solutions, filename, save_filename; max_samples
     CSV.write("data/"*save_filename, df)
 end
 
-function test_ac_dc_combo(filename, case_name; max_samples=30, ac_order = false)
+function test_ac_dc_combo(filename, case_name; max_samples=30, sort_order = :default)
     m_ac, v_ac, c_ac = ac_opf_model(filename; backend = CUDABackend())
     result_loose = madnlp(m_ac, tol=1e-4)
     result_tight = madnlp(m_ac, tol=1e-8)
@@ -78,19 +82,24 @@ function test_ac_dc_combo(filename, case_name; max_samples=30, ac_order = false)
 
     saved_filename = "data/"*case_name
 
-    if ac_order
-        ac_ordered_gens = find_ac_gen_order(tight_tuple.pg_sol)
+    best_order=false
+
+    if sort_order == :ac
+        ordered_gens = find_ac_gen_order(tight_tuple.pg_sol)
         case_name = case_name*"_ac_ordered"
+    elseif sort_order == :best
+        best_order = true
+        ordered_gens = []
+        case_name = case_name*"_best_ordered"
     else
-        ac_ordered_gens = []
+        ordered_gens = []
     end
 
-    find_shedding_limits([tight_tuple, loose_tuple, dc_tuple, socwr_tuple, qcrm_tuple], filename, case_name; max_samples=max_samples, generator_order=ac_ordered_gens)
+    saved_filename = "data/"*case_name
+    find_shedding_limits([tight_tuple, loose_tuple, dc_tuple, socwr_tuple, qcrm_tuple], filename, case_name; max_samples=max_samples, generator_order=ordered_gens, best_order=best_order)
     plot_nflex_vs_y(saved_filename, "obj", "data/"*case_name*"_obj_samples"*string(max_samples); title=case_name*" obj vs flexible generators w/ max samples = "*string(max_samples))
     plot_nflex_vs_y(saved_filename, "total_pshed", "data/"*case_name*"_p_tot_samples"*string(max_samples); title=case_name*" total p shed vs flexible generators w/ max samples = "*string(max_samples))
     plot_nflex_vs_y(saved_filename, "max_pshed", "data/"*case_name*"_p_max_samples"*string(max_samples); title=case_name*" max p shed vs flexible generators w/ max samples = "*string(max_samples))
-    println(ac_ordered_gens)
-    println(tight_tuple.pg_sol)
 end
 
 function plot_nflex_vs_y(
