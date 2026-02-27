@@ -97,7 +97,8 @@ function test_ac_dc_combo(filename, case_name; max_samples=30, sort_order = :def
 
     saved_filename = "data/"*case_name
     find_shedding_limits([tight_tuple, loose_tuple, dc_tuple, socwr_tuple, qcrm_tuple], filename, case_name; max_samples=max_samples, generator_order=ordered_gens, best_order=best_order)
-    plot_nflex_vs_y(saved_filename, "obj", "data/"*case_name*"_obj_samples"*string(max_samples); title=case_name*" obj vs flexible generators w/ max samples = "*string(max_samples))
+    plot_nflex_vs_y(saved_filename, "obj", "data/"*case_name*"_obj_samples"*string(max_samples)*"_short"; title=case_name*" obj vs flexible generators w/ max samples = "*string(max_samples))
+    plot_nflex_vs_y(saved_filename, "obj", "data/"*case_name*"_obj_samples"*string(max_samples); title=case_name*" obj vs flexible generators w/ max samples = "*string(max_samples), tight_bounds=true)
     plot_nflex_vs_y(saved_filename, "total_pshed", "data/"*case_name*"_p_tot_samples"*string(max_samples); title=case_name*" total p shed vs flexible generators w/ max samples = "*string(max_samples))
     plot_nflex_vs_y(saved_filename, "max_pshed", "data/"*case_name*"_p_max_samples"*string(max_samples); title=case_name*" max p shed vs flexible generators w/ max samples = "*string(max_samples))
 end
@@ -108,7 +109,8 @@ function plot_nflex_vs_y(
     savepath::AbstractString;
     xlabel::AbstractString = "nflex",
     ylabel::AbstractString = ycol,
-    title::AbstractString = ""
+    title::AbstractString = "",
+    tight_bounds = false
 )
     gr()              # reinitialize backend
     Plots.closeall() 
@@ -130,9 +132,21 @@ function plot_nflex_vs_y(
         legend = :best,
     )
 
+
+
     linestyles = [:solid, :dash, :dot, :dashdot, :dashdotdot]
     markers    = [:circle, :square, :diamond, :utriangle, :dtriangle, :cross]
     alphas     = range(0.9, 0.5; length=length(unique(df.initial_solution)))
+
+    if tight_bounds
+        baseline_row = findfirst(df[!, "initial_solution"] .== "ACOPF tol 1e-8")
+        if baseline_row !== nothing
+            baseline = df[baseline_row, ycol]
+            ylims = (0.99 * baseline, 1.05 * baseline)
+            plot!(p, ylim = ylims, yscale = :linear,)
+        end
+    end
+
 
     for (i, sol) in enumerate(unique(df.initial_solution))
         sub = df[df[!, "initial_solution"] .== sol, :]
