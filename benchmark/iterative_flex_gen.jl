@@ -30,17 +30,15 @@ function find_shedding_limits(pg_solutions, filename, save_filename; max_samples
 
     
     for sol_tuple in pg_solutions
-        if sol_tuple.initial_method != "ACOPF tol 1e-4"
-            continue
-        end
-        println(sol_tuple)
+        
         if best_order
             generator_order = find_best_ordering(filename, sol_tuple.pg_sol)
         end
 
 
-        skip = "
         for gen in gen_range
+            println(sol_tuple.initial_method)
+            println(gen)
             j=0
             if gen == 1   
                 flex_generators = [generator_order[1]]
@@ -50,10 +48,6 @@ function find_shedding_limits(pg_solutions, filename, save_filename; max_samples
                 flex_generators = generator_order[1:gen]
             end
             while j < 3
-            
-                println(length(flex_generators))
-                println(sol_tuple.initial_method)
-                println(gen)
                 m_mod, v_mod, c_mod = build_augmented_opf(filename, flex_generators, 1e6, sol_tuple.pg_sol; backend = CUDABackend())
                 result = madnlp(m_mod, tol=1e-8)
                 p_sheds = Array(solution(result, v_mod.p_shed))
@@ -66,10 +60,10 @@ function find_shedding_limits(pg_solutions, filename, save_filename; max_samples
                     j += 1
                 end
             end
-        end"
+        end
     end
 
-    #CSV.write("data/"*save_filename, df)
+    CSV.write("data/"*save_filename, df)
 end
 
 function test_ac_dc_combo(filename, case_name; max_samples=30, sort_order = :default)
@@ -104,7 +98,7 @@ function test_ac_dc_combo(filename, case_name; max_samples=30, sort_order = :def
     end
 
     find_shedding_limits([tight_tuple, loose_tuple, dc_tuple, socwr_tuple, qcrm_tuple], filename, case_name; max_samples=max_samples, generator_order=ordered_gens, best_order=best_order)
-    #group_plot(case_name, max_samples)
+    group_plot(case_name, max_samples)
 end
 
 function group_plot(case_name, max_samples)

@@ -116,7 +116,6 @@ function find_best_ordering(filename, pg_sol; c_shed=1e6, backend = CUDABackend(
     result_base = madnlp(m_base, tol=1e-8)
     base_vector = findall(>(1e-6), abs.(Array(solution(result_base, v_base.p_diff))))
 
-    println(abs.(Array(solution(result_base, v_base.p_diff))))
     ordered_gens = Int[]
     L1 = 1e6
 
@@ -137,9 +136,6 @@ function find_best_ordering(filename, pg_sol; c_shed=1e6, backend = CUDABackend(
 
             append!(ordered_gens, to_add)
         end
-        println(count_limit)
-        println(to_add)
-
         count_limit += 1
         L1 = L1/2
     end
@@ -149,9 +145,6 @@ function find_best_ordering(filename, pg_sol; c_shed=1e6, backend = CUDABackend(
     to_add = order_gens(to_add, parsed_data.gen)
     append!(ordered_gens, to_add)
 
-
-    println(ordered_gens)
-    println(order_gens(1:L_pg, parsed_data.gen))
     return ordered_gens
 
     
