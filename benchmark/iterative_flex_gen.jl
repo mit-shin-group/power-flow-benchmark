@@ -9,7 +9,8 @@ function find_shedding_limits(pg_solutions, filename, save_filename; max_samples
             total_pshed = Float64[],
             max_pshed = Float64[],
             total_qshed = Float64[],
-            max_qshed = Float64[]
+            max_qshed = Float64[],
+            flex_gen = []
     )
 
     gens = parsed_data.gen
@@ -47,6 +48,7 @@ function find_shedding_limits(pg_solutions, filename, save_filename; max_samples
             else
                 flex_generators = generator_order[1:gen]
             end
+            flex_gen = sum([parsed_data.gen[g].pmax for g in flex_generators]; init=0)
             while j < 3
                 m_mod, v_mod, c_mod = build_augmented_opf(filename, flex_generators, 1e6, sol_tuple.pg_sol; backend = CUDABackend())
                 result = madnlp(m_mod, tol=1e-8)
@@ -55,7 +57,7 @@ function find_shedding_limits(pg_solutions, filename, save_filename; max_samples
                 #this needs to check if solver converged
                 if result.status == MadNLP.SOLVE_SUCCEEDED
                     j = 4
-                    push!(df, [sol_tuple.initial_method, length(flex_generators), result.objective, sum(abs.(p_sheds)), maximum(abs.(p_sheds)), sum(abs.(q_sheds)), maximum(abs.(q_sheds))])
+                    push!(df, [sol_tuple.initial_method, length(flex_generators), result.objective, sum(abs.(p_sheds)), maximum(abs.(p_sheds)), sum(abs.(q_sheds)), maximum(abs.(q_sheds)), flex_gen])
                 else 
                     j += 1
                 end
