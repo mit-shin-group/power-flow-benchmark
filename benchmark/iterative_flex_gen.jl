@@ -70,15 +70,25 @@ end
 
 function test_ac_dc_combo(filename, case_name; max_samples=30, sort_order = :default)
     m_ac, v_ac, c_ac = ac_opf_model(filename; backend = CUDABackend())
-    result_loose = madnlp(m_ac, tol=1e-4)
+    solved_limits = []
+
     result_tight = madnlp(m_ac, tol=1e-8)
+    if result_tight.status == MadNLP.SOLVE_SUCCEEDED
+        tight_tuple = (pg_sol=Array(solution(result_tight, v_ac.pg)), initial_method = "ACOPF tol 1e-8")
+        push!(solved_limits, tight_tuple)
+    else
+        return nothing
+    end
+    
+    result_loose = madnlp(m_ac, tol=1e-4)
     m_dc, v_dc, c_dc = dcopf_model(filename; backend=CUDABackend())
     result_dc = madnlp(m_dc, tol=1e-8)
+    result_soc = solve_opf(filename, SOCWRPowerModel, Ipopt.Optimizer)
+    result_qc = solve_opf(filename, QCRMPowerModel, Ipopt.Optimizer)
     loose_tuple = (pg_sol=Array(solution(result_loose, v_ac.pg)), initial_method = "ACOPF tol 1e-4")
-    tight_tuple = (pg_sol=Array(solution(result_tight, v_ac.pg)), initial_method = "ACOPF tol 1e-8")
     dc_tuple = (pg_sol=Array(solution(result_dc, v_dc.pg)), initial_method = "DCOPF tol 1e-8")
-    socwr_tuple = (pg_sol=powermodels_pg_result(filename, SOCWRPowerModel), initial_method = "SOCWR tol 1e-8")
-    qcrm_tuple = (pg_sol=powermodels_pg_result(filename, QCRMPowerModel), initial_method = "QCRM tol 1e-8")
+    socwr_tuple = (pg_sol=powermodels_pg_result(result_soc), initial_method = "SOCWR tol 1e-8")
+    qcrm_tuple = (pg_sol=powermodels_pg_result(result_qc), initial_method = "QCRM tol 1e-8")
     #sdpwrm_tuple = (pg_sol=powermodels_pg_result(filename, SDPWRMPowerModel), initial_method = "SDPWRM tol 1e-8")
 
 
@@ -99,7 +109,21 @@ function test_ac_dc_combo(filename, case_name; max_samples=30, sort_order = :def
         ordered_gens = []
     end
 
-    find_shedding_limits([tight_tuple, loose_tuple, dc_tuple, socwr_tuple, qcrm_tuple], filename, case_name; max_samples=max_samples, generator_order=ordered_gens, best_order=best_order)
+    
+    if result_loose.status == MadNLP.SOLVE_SUCCEEDED
+        push!(solved_limits, loose_tuple)
+    end
+    if result_dc.status == MadNLP.SOLVE_SUCCEEDED
+        push!(solved_limits, dc_tuple)
+    end
+    if result_soc["termination_status"] == LOCALLY_SOLVED
+        push!(solved_limits, socwr_tuple)
+    end
+    if result_qc["termination_status"] == LOCALLY_SOLVED
+        push!(solved_limits, qcrm_tuple)
+    end
+
+    find_shedding_limits(solved_limits, filename, case_name; max_samples=max_samples, generator_order=ordered_gens, best_order=best_order)
     group_plot(case_name, max_samples)
 end
 

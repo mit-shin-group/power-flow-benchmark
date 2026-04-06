@@ -95,8 +95,7 @@ function build_augmented_opf(filename, flex, c_shed, pg_sol; backend=nothing)
     return ac_opf_model(filename; user_callback = augment_opf, backend=backend)
 end
 
-function powermodels_pg_result(filename, model_type)
-    result = solve_opf(filename, model_type, Ipopt.Optimizer)
+function powermodels_pg_result(result)
     gen_results = Float64[]
     for i in sort(parse.(Int, keys(result["solution"]["gen"])))
         append!(gen_results, result["solution"]["gen"][string(i)]["pg"])
@@ -127,8 +126,12 @@ function find_best_ordering(filename, pg_sol; c_shed=1e6, backend = CUDABackend(
     while !isempty(setdiff(base_vector, ordered_gens)) && count_limit < 20
         m_aug, v_aug, c_aug = augmented_opf_L1(filename, c_shed, pg_sol, L1; backend=backend)
         result_aug = madnlp(m_aug, tol=1e-8)
-        best_gens = findall(>(1e-6), abs.(Array(solution(result_aug, v_aug.p_diff))))
-        to_add = setdiff(best_gens, ordered_gens)
+        if result_aug.status == MadNLP.SOLVE_SUCCEEDED
+            best_gens = findall(>(1e-6), abs.(Array(solution(result_aug, v_aug.p_diff))))
+            to_add = setdiff(best_gens, ordered_gens)
+        else
+            to_add = []
+        end
         if length(to_add) < 2
             append!(ordered_gens, to_add)
         else
