@@ -64,3 +64,54 @@ end
 #ratios = compute_ratios(file_list)
 #plt = plot_cdfs(ratios)
 #display(plt)
+
+##other options
+
+#x axis - portion of slack generation available, y axis - average load shedding required
+#x axis - percent cost overage at feasible point, y axis - cumulative portion of cases at or below cost overage
+
+
+using CSV, DataFrames, Plots
+
+function plot_flex_vs_pshed(file_list::Vector{String}, loads::Vector{Float64}, savepath)
+    @assert length(file_list) == length(loads) "file_list and loads must match"
+
+    all_data = DataFrame()
+
+    for (file, load) in zip(file_list, loads)
+        df = CSV.read(file, DataFrame)
+
+        # normalize flex_gen by max in that file
+        max_flex = maximum(df.flex_gen)
+        df.flex_ratio = df.flex_gen ./ max_flex
+
+        # normalize total_pshed by provided load
+        df.pshed_ratio = df.total_pshed ./ load
+
+        append!(all_data, df)
+    end
+
+    # group by initial_solution
+    grouped = groupby(all_data, :initial_solution)
+
+    plt = plot()
+
+    for g in grouped
+        # sort by flex_ratio for nicer curves
+        g_sorted = sort(g, :flex_ratio)
+
+        plot!(
+            plt,
+            g_sorted.flex_ratio,
+            g_sorted.pshed_ratio,
+            label = first(g.initial_solution)
+        )
+    end
+
+    xlabel!("flex_gen ratio")
+    ylabel!("total_pshed ratio")
+    title!("Flex Generation vs Load Shedding Tradeoff")
+
+    savefig(plt, savepath*".png")
+    return plt
+end

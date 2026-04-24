@@ -39,6 +39,7 @@ function find_shedding_limits(pg_solutions, filename, save_filename; max_samples
 
         for gen in gen_range
             println(sol_tuple.initial_method)
+            println(save_filename)
             println(gen)
             j=0
             if gen == 1   
@@ -65,7 +66,7 @@ function find_shedding_limits(pg_solutions, filename, save_filename; max_samples
         end
     end
 
-    CSV.write("data/"*save_filename, df)
+    CSV.write("saved_data/"*save_filename, df)
 end
 
 function test_ac_dc_combo(filename, case_name; max_samples=30, sort_order = :default)
@@ -92,11 +93,9 @@ function test_ac_dc_combo(filename, case_name; max_samples=30, sort_order = :def
     #sdpwrm_tuple = (pg_sol=powermodels_pg_result(filename, SDPWRMPowerModel), initial_method = "SDPWRM tol 1e-8")
 
 
-    save_filename = "data/"*case_name
+    save_filename = "saved_data/"*case_name
 
     best_order=false
-
-    case_name = case_name*"_samples"*string(max_samples)
 
     if sort_order == :ac
         ordered_gens = find_ac_gen_order(tight_tuple.pg_sol)
@@ -123,16 +122,16 @@ function test_ac_dc_combo(filename, case_name; max_samples=30, sort_order = :def
         push!(solved_limits, qcrm_tuple)
     end
 
-    find_shedding_limits(solved_limits, filename, case_name; max_samples=max_samples, generator_order=ordered_gens, best_order=best_order)
+    find_shedding_limits(solved_limits, filename, case_name*"_samples"*string(max_samples); max_samples=max_samples, generator_order=ordered_gens, best_order=best_order)
     group_plot(case_name, max_samples)
 end
 
 function group_plot(case_name, max_samples)
-    saved_filename = "data/"*case_name
-    plot_nflex_vs_y(saved_filename, "obj", "data/"*case_name*"_obj_samples"*string(max_samples); title=case_name*" obj vs flexible generators w/ max samples = "*string(max_samples))
-    plot_nflex_vs_y(saved_filename, "obj", "data/"*case_name*"_obj_samples"*string(max_samples)*"_short"; title=case_name*" obj vs flexible generators w/ max samples = "*string(max_samples), tight_bounds=true)
-    plot_nflex_vs_y(saved_filename, "total_pshed", "data/"*case_name*"_p_tot_samples"*string(max_samples); title=case_name*" total p shed vs flexible generators w/ max samples = "*string(max_samples))
-    plot_nflex_vs_y(saved_filename, "max_pshed", "data/"*case_name*"_p_max_samples"*string(max_samples); title=case_name*" max p shed vs flexible generators w/ max samples = "*string(max_samples))
+    saved_filename = "saved_data/"*case_name*"_samples"*string(max_samples)
+    plot_nflex_vs_y(saved_filename, "obj", "saved_data/"*case_name*"_samples"*string(max_samples)*"_obj"; title=case_name*" obj vs flexible generators")
+    plot_nflex_vs_y(saved_filename, "obj", "saved_data/"*case_name*"_samples"*string(max_samples)*"_obj"*"_short"; title=case_name*" obj vs flexible generators", tight_bounds=true)
+    plot_nflex_vs_y(saved_filename, "total_pshed", "saved_data/"*case_name*"_samples"*string(max_samples)*"_p_tot"; title=case_name*" total p shed vs flexible generators")
+    plot_nflex_vs_y(saved_filename, "max_pshed", "saved_data/"*case_name*"_samples"*string(max_samples)*"_p_max"; title=case_name*" max p shed vs flexible generators")
 end
 
 function plot_nflex_vs_y(
