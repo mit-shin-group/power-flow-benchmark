@@ -1,6 +1,7 @@
 using CSV
 using DataFrames
 using Plots
+using ExaPowerIO
 
 function compute_ratios(file_list)
     # Store ratios grouped by initial_solution
@@ -113,5 +114,60 @@ function plot_flex_vs_pshed(file_list::Vector{String}, loads::Vector{Float64}, s
     title!("Flex Generation vs Load Shedding Tradeoff")
 
     savefig(plt, savepath*".png")
+    return plt
+end
+
+
+function plot_flex_vs_pshed2(file_list::Vector{String}, loads::Vector{Float64}, savepath; interval::Float64=0.01)
+    @assert length(file_list) == length(loads) "file_list and loads must match"
+
+    all_data = DataFrame()
+
+    for (file, load) in zip(file_list, loads)
+        df = CSV.read(file, DataFrame)
+
+        # normalize flex_gen by max in that file
+        max_flex = maximum(df.flex_gen)
+        df.flex_ratio = df.flex_gen ./ max_flex
+
+        # normalize total_pshed by provided load
+        df.pshed_ratio = df.total_pshed ./ load
+
+        append!(all_data, df)
+    end
+
+    # create bins (0 to 1)
+    all_data.flex_bin = floor.(all_data.flex_ratio ./ interval) .* interval
+
+    # group by initial_solution and bin
+    grouped = groupby(all_data, [:initial_solution, :flex_bin])
+
+    # compute averages per bin
+    agg = combine(grouped,
+        :flex_ratio => mean => :flex_ratio_mean,
+        :pshed_ratio => mean => :pshed_ratio_mean
+    )
+
+    # regroup only by initial_solution for plotting
+    grouped_sol = groupby(agg, :initial_solution)
+
+    plt = plot()
+
+    for g in grouped_sol
+        g_sorted = sort(g, :flex_ratio_mean)
+
+        plot!(
+            plt,
+            g_sorted.flex_ratio_mean,
+            g_sorted.pshed_ratio_mean,
+            label = first(g.initial_solution)
+        )
+    end
+
+    xlabel!("flex_gen ratio")
+    ylabel!("total_pshed ratio")
+    title!("Flex Generation vs Load Shedding Tradeoff")
+
+    savefig(plt, savepath * ".png")
     return plt
 end

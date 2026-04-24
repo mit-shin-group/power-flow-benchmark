@@ -1,3 +1,5 @@
+using ExaPowerIO
+
 short_cases = [
 "pglib_opf_case3_lmbd", 
 "pglib_opf_case5_pjm",
@@ -74,7 +76,7 @@ function benchmark_ac_vs_dc(cases; max_samples = 100, sort_order = :best)
     end
 end
 
-function make_plots(savefile, savefile2; cases=full_cases, max_samples=100, sort_order=:best)
+function make_plots(savefile, savefile2; cases=full_cases, max_samples=100, sort_order=:best, interval = 0.01)
     case_list = String[]
     load_list = Float64[]
     for case in cases
@@ -89,5 +91,5 @@ function make_plots(savefile, savefile2; cases=full_cases, max_samples=100, sort
     end
     ratios = compute_ratios(case_list)
     plt = plot_cdfs(ratios, "saved_data/formatted_data/"*savefile)
-    plot_flex_vs_pshed(case_list, load_list, "saved_data/formatted_data/"*savefile2)
+    plot_flex_vs_pshed2(case_list, load_list, "saved_data/formatted_data/"*savefile2; interval=interval)
 end
