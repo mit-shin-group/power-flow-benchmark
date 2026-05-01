@@ -57,10 +57,28 @@ full_cases = [
 "pglib_opf_case6468_rte",
 "pglib_opf_case6470_rte",
 "pglib_opf_case6515_rte",
-"pglib_opf_case7336_epigrids"]
+"pglib_opf_case7336_epigrids",
+"pglib_opf_case8387_pegase",
+"pglib_opf_case9241_pegase",
+"pglib_opf_case9591_goc",
+"pglib_opf_case10000_goc",
+"pglib_opf_case10192_epigrids",
+"pglib_opf_case10480_goc",
+"pglib_opf_case13659_pegase",
+"pglib_opf_case19402_goc",
+"pglib_opf_case20758_epigrids",
+"pglib_opf_case24464_goc",
+"pglib_opf_case30000_goc",
+"pglib_opf_case78484_epigrids",]
 
-function benchmark_ac_vs_dc(cases; max_samples = 100, sort_order = :best)
+function benchmark_ac_vs_dc(cases; max_samples = 100, sort_order = :best, form = :standard)
     for case in cases
+        if form == :api
+            case = case*"__api"
+            save_folder = "saved_data/api/"
+        else
+            save_folder = "saved_data/"
+        end
         case_label = split(case, "pglib_opf_")[2]
         if sort_order == :best
             case_label_saved = case_label*"_best_ordered"
@@ -70,13 +88,13 @@ function benchmark_ac_vs_dc(cases; max_samples = 100, sort_order = :best)
         println(case_label_saved)
         println(case_label)
         println(case)
-        if !isfile("saved_data/"*case_label_saved)
-            test_ac_dc_combo("data/"*case*".m", case_label; max_samples = max_samples, sort_order = sort_order)
+        if !isfile(save_folder*case_label_saved)
+            test_ac_dc_combo("data/"*case*".m", case_label; max_samples = max_samples, sort_order = sort_order, save_folder=save_folder)
         end
     end
 end
 
-function make_plots(savefile, savefile2; cases=full_cases, max_samples=100, sort_order=:best, interval = 0.01)
+function make_plots(savefile, savefile2, savefile3; cases=full_cases, max_samples=100, sort_order=:best, interval = 0.01)
     case_list = String[]
     load_list = Float64[]
     for case in cases
@@ -86,10 +104,15 @@ function make_plots(savefile, savefile2; cases=full_cases, max_samples=100, sort
             case_label = case_label* "_best_ordered"
         end
         case_label = case_label*"_samples"*string(max_samples)
-        push!(case_list, "saved_data/"*case_label)
-        push!(load_list, total_load)
+        if isfile("saved_data/"*case_label)
+            push!(case_list, "saved_data/"*case_label)
+            push!(load_list, total_load)
+        end
     end
     ratios = compute_ratios(case_list)
-    plt = plot_cdfs(ratios, "saved_data/formatted_data/"*savefile)
-    plot_flex_vs_pshed2(case_list, load_list, "saved_data/formatted_data/"*savefile2; interval=interval)
+    #plt = plot_cdfs(ratios, "saved_data/formatted_data/"*savefile)
+    cost_ratios = compute_ratios_cost_overage(case_list)
+    #plt = plot_cdfs(cost_ratios, "saved_data/formatted_data/"*savefile3; cost = true)
+    #plot_flex_vs_pshed2(case_list, load_list, "saved_data/formatted_data/"*savefile2; interval=interval)
+    plot_flex_vs_pshed(case_list, load_list, "saved_data/formatted_data/"*savefile2;)
 end

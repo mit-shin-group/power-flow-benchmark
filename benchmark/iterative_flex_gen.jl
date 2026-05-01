@@ -1,6 +1,6 @@
 using DataFrames, CSV, Plots, ExaModels, ExaModelsPower, MadNLP, MadNLPGPU, ExaPowerIO, CUDA
 
-function find_shedding_limits(pg_solutions, filename, save_filename; max_samples=30, generator_order= [], best_order = false)
+function find_shedding_limits(pg_solutions, filename, save_filename; max_samples=30, generator_order= [], best_order = false, save_folder = "saved_data/", shed_penalty=1e6)
     parsed_data = ExaPowerIO.parse_matpower(filename;)# library=:pglib)
     df = DataFrame(
             initial_solution = String[],
@@ -51,7 +51,7 @@ function find_shedding_limits(pg_solutions, filename, save_filename; max_samples
             end
             flex_gen = sum([parsed_data.gen[g].pmax for g in flex_generators]; init=0)
             while j < 3
-                m_mod, v_mod, c_mod = build_augmented_opf(filename, flex_generators, 1e6, sol_tuple.pg_sol; backend = CUDABackend())
+                m_mod, v_mod, c_mod = build_augmented_opf(filename, flex_generators, shed_penalty, sol_tuple.pg_sol; backend = CUDABackend())
                 result = madnlp(m_mod, tol=1e-8)
                 p_sheds = Array(solution(result, v_mod.p_shed))
                 q_sheds = Array(solution(result, v_mod.q_shed))
@@ -66,10 +66,10 @@ function find_shedding_limits(pg_solutions, filename, save_filename; max_samples
         end
     end
 
-    CSV.write("saved_data/"*save_filename, df)
+    CSV.write(save_folder*save_filename, df)
 end
 
-function test_ac_dc_combo(filename, case_name; max_samples=30, sort_order = :default)
+function test_ac_dc_combo(filename, case_name; max_samples=30, sort_order = :default, save_folder = "saved_data/", shed_penalty = 1e6)
     m_ac, v_ac, c_ac = ac_opf_model(filename; backend = CUDABackend())
     solved_limits = []
 
@@ -93,7 +93,7 @@ function test_ac_dc_combo(filename, case_name; max_samples=30, sort_order = :def
     #sdpwrm_tuple = (pg_sol=powermodels_pg_result(filename, SDPWRMPowerModel), initial_method = "SDPWRM tol 1e-8")
 
 
-    save_filename = "saved_data/"*case_name
+    save_filename = save_folder*case_name
 
     best_order=false
 
@@ -122,16 +122,16 @@ function test_ac_dc_combo(filename, case_name; max_samples=30, sort_order = :def
         push!(solved_limits, qcrm_tuple)
     end
 
-    find_shedding_limits(solved_limits, filename, case_name*"_samples"*string(max_samples); max_samples=max_samples, generator_order=ordered_gens, best_order=best_order)
-    group_plot(case_name, max_samples)
+    find_shedding_limits(solved_limits, filename, case_name*"_samples"*string(max_samples); max_samples=max_samples, generator_order=ordered_gens, best_order=best_order, save_folder=save_folder, shed_penalty=shed_penalty)
+    group_plot(case_name, max_samples, save_folder)
 end
 
-function group_plot(case_name, max_samples)
-    saved_filename = "saved_data/"*case_name*"_samples"*string(max_samples)
-    plot_nflex_vs_y(saved_filename, "obj", "saved_data/"*case_name*"_samples"*string(max_samples)*"_obj"; title=case_name*" obj vs flexible generators")
-    plot_nflex_vs_y(saved_filename, "obj", "saved_data/"*case_name*"_samples"*string(max_samples)*"_obj"*"_short"; title=case_name*" obj vs flexible generators", tight_bounds=true)
-    plot_nflex_vs_y(saved_filename, "total_pshed", "saved_data/"*case_name*"_samples"*string(max_samples)*"_p_tot"; title=case_name*" total p shed vs flexible generators")
-    plot_nflex_vs_y(saved_filename, "max_pshed", "saved_data/"*case_name*"_samples"*string(max_samples)*"_p_max"; title=case_name*" max p shed vs flexible generators")
+function group_plot(case_name, max_samples, save_folder)
+    saved_filename = save_folder*case_name*"_samples"*string(max_samples)
+    plot_nflex_vs_y(saved_filename, "obj", save_folder*case_name*"_samples"*string(max_samples)*"_obj"; title=case_name*" obj vs flexible generators")
+    plot_nflex_vs_y(saved_filename, "obj", save_folder*case_name*"_samples"*string(max_samples)*"_obj"*"_short"; title=case_name*" obj vs flexible generators", tight_bounds=true)
+    plot_nflex_vs_y(saved_filename, "total_pshed", save_folder*case_name*"_samples"*string(max_samples)*"_p_tot"; title=case_name*" total p shed vs flexible generators")
+    plot_nflex_vs_y(saved_filename, "max_pshed", save_folder*case_name*"_samples"*string(max_samples)*"_p_max"; title=case_name*" max p shed vs flexible generators")
 end
 
 function plot_nflex_vs_y(
