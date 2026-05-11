@@ -122,7 +122,7 @@ function plot_flex_vs_pshed(file_list::Vector{String}, loads::Vector{Float64}, s
     xlabel!("flex_gen ratio")
     ylabel!("total_pshed ratio")
     title!("Flex Generation vs Load Shedding Tradeoff")
-    ylims!(1e-7, 0.38)
+    ylims!(2e-6, 0.38)
 
     savefig(plt, savepath*".png")
     return plt
