@@ -1,10 +1,11 @@
 name = "PowerFlowBenchmark"
 uuid = "d0ed5ff4-bbe8-4326-be19-9873198f0649"
-authors = ["Sanjay Johnson"]
 version = "0.1.0"
+authors = ["Sanjay Johnson"]
 
 [deps]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
+CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 ExaModels = "1037b233-b668-4ce9-9b63-f9f681f55dd2"
 ExaModelsPower = "2fff4b78-0b6c-428d-bac8-85ccea8c4bdf"
@@ -16,6 +17,7 @@ Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 PowerModels = "c36e90e8-916a-50a6-bd94-075b64ef4655"
 
 [compat]
+CUDA = "5.9.7"
 ExaModels = "0.9.5"
 ExaModelsPower = "0.3.1"
 Ipopt = "1.14.1"

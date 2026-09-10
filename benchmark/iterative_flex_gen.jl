@@ -29,11 +29,22 @@ function find_shedding_limits(pg_solutions, filename, save_filename; max_samples
         gen_range = unique(round.(Int, range(0, L_gen, length=max_samples)))
     end
 
+    gen_order_save = Int[]
+    count_adds_save = Int[]
+    added_values_save = Int[]
     
     for sol_tuple in pg_solutions
+
+
         
         if best_order
-            generator_order = find_best_ordering(filename, sol_tuple.pg_sol)
+            generator_order, count_adds, added_values = find_best_ordering(filename, sol_tuple.pg_sol; c_shed = shed_penalty)
+        end
+
+        if sol_tuple.initial_method == "ACOPF tol 1e-4"
+            gen_order_save = generator_order
+            count_adds_save = count_adds
+            added_values_save = added_values
         end
 
 
@@ -67,6 +78,7 @@ function find_shedding_limits(pg_solutions, filename, save_filename; max_samples
     end
 
     CSV.write(save_folder*save_filename, df)
+    return gen_order_save, count_adds_save, added_values_save
 end
 
 function test_ac_dc_combo(filename, case_name; max_samples=30, sort_order = :default, save_folder = "saved_data/", shed_penalty = 1e6)
@@ -122,8 +134,9 @@ function test_ac_dc_combo(filename, case_name; max_samples=30, sort_order = :def
         push!(solved_limits, qcrm_tuple)
     end
 
-    find_shedding_limits(solved_limits, filename, case_name*"_samples"*string(max_samples); max_samples=max_samples, generator_order=ordered_gens, best_order=best_order, save_folder=save_folder, shed_penalty=shed_penalty)
+    gen_order_save, count_adds_save, added_values = find_shedding_limits(solved_limits, filename, case_name*"_samples"*string(max_samples); max_samples=max_samples, generator_order=ordered_gens, best_order=best_order, save_folder=save_folder, shed_penalty=shed_penalty)
     group_plot(case_name, max_samples, save_folder)
+    return gen_order_save, count_adds_save, added_values
 end
 
 function group_plot(case_name, max_samples, save_folder)

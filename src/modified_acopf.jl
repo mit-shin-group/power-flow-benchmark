@@ -111,19 +111,27 @@ function find_best_ordering(filename, pg_sol; c_shed=1e6, backend = CUDABackend(
     parsed_data = ExaPowerIO.parse_matpower(filename;)
     L_pg = length(parsed_data.gen)
 
+    pg_sol = [  clamp(pg_sol[i],
+                        parsed_data.gen[i].pmin,
+                        parsed_data.gen[i].pmax)
+                for i in 1:L_pg
+            ]
+
+
     m_base, v_base, c_base = augmented_opf_L1(filename, c_shed, pg_sol, 0; backend=backend)
     result_base = madnlp(m_base, tol=1e-8)
     base_vector = findall(>(1e-6), abs.(Array(solution(result_base, v_base.p_diff))))
 
     ordered_gens = Int[]
-    L1 = 1e6
+    L1 = 1e8
 
     count_limit = 0
-    #112,110,66
 
+    count_adds = Int[]
+    added_values = Float64[]
 
     #keep building list until matches the list with no L1 penalty
-    while !isempty(setdiff(base_vector, ordered_gens)) && count_limit < 20
+    while !isempty(setdiff(base_vector, ordered_gens)) && count_limit < 30
         m_aug, v_aug, c_aug = augmented_opf_L1(filename, c_shed, pg_sol, L1; backend=backend)
         result_aug = madnlp(m_aug, tol=1e-8)
         if result_aug.status == MadNLP.SOLVE_SUCCEEDED
@@ -135,10 +143,13 @@ function find_best_ordering(filename, pg_sol; c_shed=1e6, backend = CUDABackend(
         if length(to_add) < 2
             append!(ordered_gens, to_add)
         else
-            to_add = order_gens(to_add, parsed_data.gen)
-
+            #to_add = order_gens(to_add, parsed_data.gen)
+            p_diff_vals = Array(solution(result_aug, v_aug.p_diff))
+            to_add = to_add[sortperm(abs.(p_diff_vals[to_add]), rev=true)]
             append!(ordered_gens, to_add)
         end
+        append!(count_adds, ones(length(to_add))*count_limit)
+        append!(added_values, Array(solution(result_aug, v_aug.p_diff))[to_add])
         count_limit += 1
         L1 = L1/2
     end
@@ -148,7 +159,7 @@ function find_best_ordering(filename, pg_sol; c_shed=1e6, backend = CUDABackend(
     to_add = order_gens(to_add, parsed_data.gen)
     append!(ordered_gens, to_add)
 
-    return ordered_gens
+    return ordered_gens, count_adds, added_values
 
     
 end

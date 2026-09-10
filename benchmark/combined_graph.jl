@@ -4,28 +4,26 @@ using Plots
 using Statistics
 
 function compute_ratios(file_list)
-    # Store ratios grouped by initial_solution
     ratios = Dict{Any, Vector{Float64}}()
 
     for file in file_list
         df = CSV.read(file, DataFrame)
 
-        # final flex_gen (last row of CSV)
         final_flex = df.flex_gen[end]
+        groups = groupby(df, :initial_solution)
 
-        # group by initial_solution
-        for g in groupby(df, "initial_solution")
-            init = g.initial_solution[1]
-
-            # find first index where total_pshed < 1e-8
+        for g in groups
             idx = findfirst(x -> x < 1e-8, g.max_pshed)
 
             if idx !== nothing
                 ratio = g.flex_gen[idx] / final_flex
 
+                init = g.initial_solution[1]
+
                 if !haskey(ratios, init)
                     ratios[init] = Float64[]
                 end
+
                 push!(ratios[init], ratio)
             end
         end
@@ -36,7 +34,7 @@ end
 
 
 function plot_cdfs(ratios, savepath; cost = false)
-    plt = plot()
+    plt = plot(legend = :bottomright)
 
     if cost
         xmax= 5
@@ -187,40 +185,121 @@ end
 #x axis - percent cost overage at feasible point, y axis - cumulative portion of cases at or below cost overage
 
 function compute_ratios_cost_overage(file_list)
-    # Store ratios grouped by initial_solution
     ratios = Dict{Any, Vector{Float64}}()
 
     for file in file_list
         df = CSV.read(file, DataFrame)
 
-        # final flex_gen (last row of CSV)
         final_cost = df.obj[end]
+        groups = groupby(df, :initial_solution)
 
-        idxs = [
-            something(findfirst(<(1e-8), g.max_pshed), 0)
-            for g in groupby(df, "initial_solution")
-        ]
+        # Find the nflex value where each initial solution first becomes feasible
+        feasibility_nflex = Float64[]
 
-        worst_idx = maximum(idxs)
+        for g in groups
+            idx = findfirst(x -> x < 1e-8, g.max_pshed)
 
-        # group by initial_solution
-        for g in groupby(df, "initial_solution")
+            if idx !== nothing
+                push!(feasibility_nflex, g.nflex[idx])
+            end
+        end
+
+        # Skip this file if no initial solution became feasible
+        if isempty(feasibility_nflex)
+            continue
+        end
+
+        # nflex at which the last initial solution becomes feasible
+        worst_nflex = maximum(feasibility_nflex)
+
+        # Evaluate every initial solution at worst_nflex
+        for g in groups
+            # Exact match first
+            idx = findfirst(==(worst_nflex), g.nflex)
+
+            # Otherwise use the first available nflex greater than worst_nflex
+            if idx === nothing
+                idx = findfirst(x -> x > worst_nflex, g.nflex)
+            end
+
+            # Skip this initial solution if it does not extend far enough
+            if idx === nothing
+                continue
+            end
+
+            ratio = (g.obj[idx] - final_cost) / final_cost * 100
+
             init = g.initial_solution[1]
 
-            # find first index where total_pshed < 1e-8
-            #idx = findfirst(x -> x < 1e-8, g.max_pshed)
-
-            if worst_idx !== nothing
-                ratio = (g.obj[worst_idx] - final_cost) / final_cost *100
-
-                if !haskey(ratios, init)
-                    ratios[init] = Float64[]
-                end
-                push!(ratios[init], ratio)
+            if !haskey(ratios, init)
+                ratios[init] = Float64[]
             end
+
+            push!(ratios[init], ratio)
         end
     end
 
     return ratios
 end
 
+
+function plot_flex_fraction_vs_generators(
+    file_list::Vector{String},
+    savepath
+)
+    # Store (total_generators, flex_fraction) for each initial solution
+    data = Dict{Any, Tuple{Vector{Float64}, Vector{Float64}}}()
+
+    for file in file_list
+        df = CSV.read(file, DataFrame)
+
+        # Total number of generators = final nflex entry
+        total_generators = maximum(df.nflex)
+
+        for g in groupby(df, :initial_solution)
+            init = g.initial_solution[1]
+
+            # First point with effectively zero load shedding
+            idx = findfirst(x -> x < 1e-8, g.max_pshed)
+
+            # Skip cases that never achieve feasibility
+            if idx === nothing
+                continue
+            end
+
+            nflex_needed = g.nflex[idx]
+            flex_fraction = nflex_needed / total_generators
+
+            if !haskey(data, init)
+                data[init] = (Float64[], Float64[])
+            end
+
+            push!(data[init][1], total_generators)
+            push!(data[init][2], flex_fraction)
+        end
+    end
+
+    plt = plot()
+
+    for (init, (generators, fractions)) in data
+        # Sort by number of generators
+        order = sortperm(generators)
+
+        scatter!(
+            plt,
+            generators[order],
+            fractions[order],
+            marker = :circle,
+            label = string(init)
+        )
+    end
+
+    xlabel!("Total Number of Generators")
+    ylabel!("Fraction of Flex Generation Needed")
+    title!("Flex Generation Needed for Zero Load Shedding")
+    ylims!(0, 1)
+
+    savefig(plt, savepath * ".png")
+
+    return plt
+end
