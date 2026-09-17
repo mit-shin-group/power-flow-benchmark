@@ -141,17 +141,17 @@ end
 
 function group_plot(case_name, max_samples, save_folder)
     saved_filename = save_folder*case_name*"_samples"*string(max_samples)
-    plot_nflex_vs_y(saved_filename, "obj", save_folder*case_name*"_samples"*string(max_samples)*"_obj"; title=case_name*" obj vs flexible generators")
-    plot_nflex_vs_y(saved_filename, "obj", save_folder*case_name*"_samples"*string(max_samples)*"_obj"*"_short"; title=case_name*" obj vs flexible generators", tight_bounds=true)
-    plot_nflex_vs_y(saved_filename, "total_pshed", save_folder*case_name*"_samples"*string(max_samples)*"_p_tot"; title=case_name*" total p shed vs flexible generators")
-    plot_nflex_vs_y(saved_filename, "max_pshed", save_folder*case_name*"_samples"*string(max_samples)*"_p_max"; title=case_name*" max p shed vs flexible generators")
+    plot_nflex_vs_y(saved_filename, "obj", save_folder*case_name*"_samples"*string(max_samples)*"_obj"; title="", ylabel = "Objective")
+    plot_nflex_vs_y(saved_filename, "obj", save_folder*case_name*"_samples"*string(max_samples)*"_obj"*"_short"; title="", tight_bounds=true, ylabel = "Objective")
+    plot_nflex_vs_y(saved_filename, "total_pshed", save_folder*case_name*"_samples"*string(max_samples)*"_p_tot"; title="", ylabel = "Total Active Power Load Shed")
+    plot_nflex_vs_y(saved_filename, "max_pshed", save_folder*case_name*"_samples"*string(max_samples)*"_p_max"; title="", ylabel = "Maximum Active Power Load Shed")
 end
 
 function plot_nflex_vs_y(
     csvfile::AbstractString,
     ycol::String,
     savepath::AbstractString;
-    xlabel::AbstractString = "nflex",
+    xlabel::AbstractString = "Number of Adjustible Generators",
     ylabel::AbstractString = ycol,
     title::AbstractString = "",
     tight_bounds = false

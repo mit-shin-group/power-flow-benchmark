@@ -33,11 +33,12 @@ function compute_ratios(file_list)
 end
 
 
-function plot_cdfs(ratios, savepath; cost = false)
+function plot_cdfs(ratios, savepath; csvpath = savepath * ".csv", cost = false)
     plt = plot(legend = :bottomright)
 
     if cost
         xmax= 5
+
         x_label = "Percent Increase in Cost"
         y_label = "Portion of Cases at or Below Cost Increase"
     else
@@ -45,24 +46,31 @@ function plot_cdfs(ratios, savepath; cost = false)
         x_label = "Portion of Generation Needed as Slack"
         y_label = "Portion of Cases Feasible"
     end
-    for (init, vals) in ratios
-        sorted_vals = sort(vals)
-        n = length(sorted_vals)
 
-        # empirical CDF
-        y = (1:n) ./ n
+    open(csvpath, "w") do io
+        println(io, "Solution method,Avg")
 
-        # step plot (piecewise constant)
-        plot!(plt, sorted_vals, y,
-              label = string(init),
-              seriestype = :steppost)
+        for (init, vals) in ratios
+            sorted_vals = sort(vals)
+            n = length(sorted_vals)
+
+            # empirical CDF
+            y = (1:n) ./ n
+
+            # step plot
+            plot!(plt, sorted_vals, y,
+                  label = string(init),
+                  seriestype = :steppost)
+
+            # Average value for this solution
+            println(io, "$(init),$(sum(vals) / length(vals))")
+        end
     end
 
     xlabel!(x_label)
     ylabel!(y_label)
     ylims!(0, 1)
     xlims!(0, xmax)
-    
 
     savefig(plt, savepath*".png")
 end
@@ -197,7 +205,7 @@ function compute_ratios_cost_overage(file_list)
         feasibility_nflex = Float64[]
 
         for g in groups
-            idx = findfirst(x -> x < 1e-8, g.max_pshed)
+            idx = findfirst(x -> x < 1.03e-8, g.max_pshed)
 
             if idx !== nothing
                 push!(feasibility_nflex, g.nflex[idx])
@@ -230,6 +238,8 @@ function compute_ratios_cost_overage(file_list)
             ratio = (g.obj[idx] - final_cost) / final_cost * 100
 
             init = g.initial_solution[1]
+
+            
 
             if !haskey(ratios, init)
                 ratios[init] = Float64[]
