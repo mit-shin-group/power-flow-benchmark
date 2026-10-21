@@ -26,7 +26,7 @@ include("benchmark/benchmark_cases.jl")
 benchmark_ac_vs_dc(full_cases)
 ```
 
-Results are saved to `saved_data/` as CSV files and PNG plots per test case.
+Results are saved to `saved_data/` as CSV files and SVG plots per test case.
 
 ## Generating Summary Plots
 
