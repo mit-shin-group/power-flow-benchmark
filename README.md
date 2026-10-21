@@ -10,7 +10,7 @@ Benchmarking suite for AC Optimal Power Flow (OPF) flexibility analysis. Evaluat
 ## Installation
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/mit-shin-group/power-flow-benchmark
 cd PowerFlowBenchmarkPES27
 julia --project=. -e "using Pkg; Pkg.instantiate()"
 ```
@@ -33,14 +33,14 @@ Results are saved to `saved_data/` as CSV files and PNG plots per test case.
 After benchmarks complete, call `make_plots` in the same session:
 
 ```julia
-make_plots("flex_cdf", "flex_vs_pshed", "cost_cdf", "flex_fraction"; cases=full_cases)
+make_plots("flex_cdf", "flex_vs_pshed", "cost_cdf", "flex_fraction", "cost_cdf_per_method"; cases=full_cases)
 ```
 
 Output is saved to `saved_data/formatted_data/`.
 
 ## Benchmark Cases
 
-Case lists are defined in `benchmark/benchmark_cases.jl`. The default run uses `back_half_cases`. To run a different set, edit the last line of `benchmark/run_benchmark.jl`:
+Case lists are defined in `benchmark/benchmark_cases.jl`. The default run uses all cases. 
 
 | Variable | Description |
 |---|---|
