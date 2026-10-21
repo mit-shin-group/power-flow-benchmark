@@ -45,8 +45,8 @@ Case lists are defined in `benchmark/benchmark_cases.jl`. The default run uses a
 | Variable | Description |
 |---|---|
 | `short_cases` | 5 small cases for quick testing |
-| `full_cases` | All 63 pglib-opf cases |
-| `half_cases` | First 50 cases |
+| `full_cases` | All 64 pglib-opf cases |
+| `half_cases` | First 56 cases |
 | `back_half_cases` | 8 largest cases |
 
 ## License
