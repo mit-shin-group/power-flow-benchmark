@@ -100,8 +100,8 @@ function test_ac_dc_combo(filename, case_name; max_samples=30, sort_order = :def
     result_qc = solve_opf(filename, QCRMPowerModel, Ipopt.Optimizer)
     loose_tuple = (pg_sol=Array(solution(result_loose, v_ac.pg)), initial_method = "ACOPF tol 1e-4")
     dc_tuple = (pg_sol=Array(solution(result_dc, v_dc.pg)), initial_method = "DCOPF tol 1e-8")
-    socwr_tuple = (pg_sol=powermodels_pg_result(result_soc), initial_method = "SOCWR tol 1e-8")
-    qcrm_tuple = (pg_sol=powermodels_pg_result(result_qc), initial_method = "QCRM tol 1e-8")
+    socwr_tuple = (pg_sol=powermodels_pg_result(result_soc), initial_method = "SOC tol 1e-8")
+    qcrm_tuple = (pg_sol=powermodels_pg_result(result_qc), initial_method = "QC tol 1e-8")
     #sdpwrm_tuple = (pg_sol=powermodels_pg_result(filename, SDPWRMPowerModel), initial_method = "SDPWRM tol 1e-8")
 
 
@@ -151,7 +151,7 @@ function plot_nflex_vs_y(
     csvfile::AbstractString,
     ycol::String,
     savepath::AbstractString;
-    xlabel::AbstractString = "Number of Adjustible Generators",
+    xlabel::AbstractString = "Number of Flexible Generators",
     ylabel::AbstractString = ycol,
     title::AbstractString = "",
     tight_bounds = false
@@ -214,7 +214,7 @@ function plot_nflex_vs_y(
     end
 
 
-    savefig(p, savepath*".png")
+    savefig(p, savepath*".svg")
 end
 
 function find_ac_gen_order(pg_sol)

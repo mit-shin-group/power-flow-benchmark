@@ -10,7 +10,7 @@ function augmented_opf_L1(filename, c_shed, pg_sol, lambda; backend=nothing)
 
     pg_sol = Array(pg_sol)
 
-    bus_list = [(i=i,) for i in 1:L_bus]
+    #bus_list = [(i=i,) for i in 1:L_bus]
 
     function augment_opf(core, vars, cons)
         p_shed = variable(core, L_bus;)
@@ -20,7 +20,7 @@ function augmented_opf_L1(filename, c_shed, pg_sol, lambda; backend=nothing)
         q_shed_pos = variable(core, L_bus; lvar = 0)
         q_shed_neg = variable(core, L_bus; lvar = 0)
         o_shed = objective(core, c_shed*(p_shed_pos[i]+q_shed_pos[i]+p_shed_neg[i]+q_shed_neg[i]) for i in 1:L_bus)
-        c_active_power_balance_shed = constraint!(core, cons.c_active_power_balance, b.i => -p_shed[b.i] for b in bus_list)
+        c_active_power_balance_shed = constraint!(core, cons.c_active_power_balance, i => -p_shed[i] for i in 1:L_bus)
         c_reactive_power_balance_shed = constraint!(core, cons.c_reactive_power_balance, i => -q_shed[i] for i in 1:L_bus)
 
         c_p_shed_positive = constraint(core, p_shed_pos[i]-p_shed[i] for i in 1:L_bus; ucon=fill(Inf, L_bus))
@@ -45,10 +45,13 @@ function augmented_opf_L1(filename, c_shed, pg_sol, lambda; backend=nothing)
         c_p_diff_positive = constraint(core, p_diff_pos[i]-p_diff[i] for i in 1:L_pg; ucon=fill(Inf, L_pg))
         c_p_diff_negative = constraint(core, -p_diff_neg[i]-p_diff[i] for i in 1:L_pg; lcon=fill(-Inf, L_pg))
 
+        #fix load shedding P/Q ratio
+        c_shed_ratio = constraint(core, p_shed[b.i]*b.qd - q_shed[b.i]*b.pd for b in parsed_data.bus)
+
         o_p_diff = objective(core, lambda*(p_diff_neg[i]+p_diff_pos[i]) for i in 1:L_pg)
 
         return ((p_shed=p_shed, q_shed=q_shed, p_shed_pos=p_shed_pos, p_shed_neg=p_shed_neg, q_shed_pos=q_shed_pos, q_shed_neg=q_shed_neg, p_diff=p_diff, p_diff_pos=p_diff_pos, p_diff_neg=p_diff_neg,), 
-        (c_p_shed_positive=c_p_shed_positive, c_p_shed_negative=c_p_shed_negative, c_q_shed_positive=c_q_shed_positive, c_q_shed_negative=c_q_shed_negative, c_p_diff_positive=c_p_diff_positive, c_p_diff_negative=c_p_diff_negative,)) #c_p_diff=c_p_diff, 
+        (c_p_shed_positive=c_p_shed_positive, c_p_shed_negative=c_p_shed_negative, c_q_shed_positive=c_q_shed_positive, c_q_shed_negative=c_q_shed_negative, c_p_diff_positive=c_p_diff_positive, c_p_diff_negative=c_p_diff_negative, c_shed_ratio=c_shed_ratio)) #c_p_diff=c_p_diff, 
     end
     return ac_opf_model(filename; user_callback = augment_opf, backend=backend)
 end
@@ -88,9 +91,11 @@ function build_augmented_opf(filename, flex, c_shed, pg_sol; backend=nothing)
         c_q_shed_positive = constraint(core, q_shed_pos[i]-q_shed[i] for i in 1:L_bus; ucon=fill(Inf, L_bus))
         c_q_shed_negative = constraint(core, -q_shed_neg[i]-q_shed[i] for i in 1:L_bus; lcon=fill(-Inf, L_bus))
 
+        c_shed_ratio = constraint(core, p_shed[b.i]*b.qd - q_shed[b.i]*b.pd for b in parsed_data.bus)
+
         pg = vars.pg
         c_pg_fix = constraint(core, pg[fg.i] - fg.g for fg in fixed_generators)
-        return ((p_shed=p_shed, q_shed=q_shed, p_shed_pos=p_shed_pos, p_shed_neg=p_shed_neg, q_shed_pos=q_shed_pos, q_shed_neg=q_shed_neg,), (c_pg_fix=c_pg_fix, c_p_shed_positive=c_p_shed_positive, c_p_shed_negative=c_p_shed_negative, c_q_shed_positive=c_q_shed_positive, c_q_shed_negative=c_q_shed_negative,))
+        return ((p_shed=p_shed, q_shed=q_shed, p_shed_pos=p_shed_pos, p_shed_neg=p_shed_neg, q_shed_pos=q_shed_pos, q_shed_neg=q_shed_neg,), (c_pg_fix=c_pg_fix, c_p_shed_positive=c_p_shed_positive, c_p_shed_negative=c_p_shed_negative, c_q_shed_positive=c_q_shed_positive, c_q_shed_negative=c_q_shed_negative, c_shed_ratio=c_shed_ratio,))
     end
     return ac_opf_model(filename; user_callback = augment_opf, backend=backend)
 end

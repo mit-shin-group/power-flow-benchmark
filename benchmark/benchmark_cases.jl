@@ -1,3 +1,6 @@
+include("iterative_flex_gen.jl")
+include("../src/modified_acopf.jl")
+include("combined_graph.jl")
 using ExaPowerIO
 
 short_cases = [
@@ -164,7 +167,7 @@ function benchmark_ac_vs_dc(cases; max_samples = 100, sort_order = :best, form =
     end
 end
 
-function make_plots(savefile, savefile2, savefile3, savefile4; cases=full_cases, max_samples=100, sort_order=:best, interval = 0.01)
+function make_plots(savefile, savefile2, savefile3, savefile4, savefile5; cases=full_cases, max_samples=100, sort_order=:best, interval = 0.01)
     case_list = String[]
     load_list = Float64[]
     for case in cases
@@ -189,5 +192,8 @@ function make_plots(savefile, savefile2, savefile3, savefile4; cases=full_cases,
     plt = plot_cdfs(cost_ratios, "saved_data/formatted_data/"*savefile3; cost = true)
 
     plot_flex_fraction_vs_generators(case_list,"saved_data/formatted_data/"*savefile4)
+
+    cost_ratios_per_method = compute_ratios_cost_overage_per_method(case_list)
+    plt = plot_cdfs(cost_ratios_per_method, "saved_data/formatted_data/"*savefile5; cost = true)
 
 end

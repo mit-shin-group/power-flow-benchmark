@@ -2,30 +2,24 @@ using CSV
 using DataFrames
 using Plots
 using Statistics
+using OrderedCollections
+
 
 function compute_ratios(file_list)
-    ratios = Dict{Any, Vector{Float64}}()
+    ratios = OrderedDict{String, Vector{Float64}}()
 
     for file in file_list
         df = CSV.read(file, DataFrame)
 
         final_flex = df.flex_gen[end]
-        groups = groupby(df, :initial_solution)
+        groups = groupby(df, :initial_solution; sort=false)
 
         for g in groups
             idx = findfirst(x -> x < 1e-8, g.max_pshed)
+            idx === nothing && continue
 
-            if idx !== nothing
-                ratio = g.flex_gen[idx] / final_flex
-
-                init = g.initial_solution[1]
-
-                if !haskey(ratios, init)
-                    ratios[init] = Float64[]
-                end
-
-                push!(ratios[init], ratio)
-            end
+            init = String(g.initial_solution[1])
+            push!(get!(ratios, init, Float64[]), g.flex_gen[idx] / final_flex)
         end
     end
 
@@ -43,7 +37,7 @@ function plot_cdfs(ratios, savepath; csvpath = savepath * ".csv", cost = false)
         y_label = "Portion of Cases at or Below Cost Increase"
     else
         xmax=1  
-        x_label = "Portion of Generation Needed as Slack"
+        x_label = "Portion of Generation Needed as Flexible"
         y_label = "Portion of Cases Feasible"
     end
 
@@ -72,7 +66,7 @@ function plot_cdfs(ratios, savepath; csvpath = savepath * ".csv", cost = false)
     ylims!(0, 1)
     xlims!(0, xmax)
 
-    savefig(plt, savepath*".png")
+    savefig(plt, savepath*".svg")
 end
 
 
@@ -108,7 +102,7 @@ function plot_flex_vs_pshed(file_list::Vector{String}, loads::Vector{Float64}, s
     end
 
     # group by initial_solution
-    grouped = groupby(all_data, :initial_solution)
+    grouped = groupby(all_data, :initial_solution; sort=false)
 
     plt = plot(yscale = :log10)
 
@@ -130,7 +124,7 @@ function plot_flex_vs_pshed(file_list::Vector{String}, loads::Vector{Float64}, s
     title!("Flex Generation vs Load Shedding Tradeoff")
     ylims!(2e-6, 0.38)
 
-    savefig(plt, savepath*".png")
+    savefig(plt, savepath*".svg")
     return plt
 end
 
@@ -185,7 +179,7 @@ function plot_flex_vs_pshed2(file_list::Vector{String}, loads::Vector{Float64}, 
     ylabel!("total_pshed ratio")
     title!("Flex Generation vs Load Shedding Tradeoff")
 
-    savefig(plt, savepath * ".png")
+    savefig(plt, savepath * ".svg")
     return plt
 end
 
@@ -193,13 +187,13 @@ end
 #x axis - percent cost overage at feasible point, y axis - cumulative portion of cases at or below cost overage
 
 function compute_ratios_cost_overage(file_list)
-    ratios = Dict{Any, Vector{Float64}}()
+    ratios = OrderedDict{String, Vector{Float64}}()
 
     for file in file_list
         df = CSV.read(file, DataFrame)
 
         final_cost = df.obj[end]
-        groups = groupby(df, :initial_solution)
+        groups = groupby(df, :initial_solution; sort=false)  # order of appearance
 
         # Find the nflex value where each initial solution first becomes feasible
         feasibility_nflex = Float64[]
@@ -231,21 +225,54 @@ function compute_ratios_cost_overage(file_list)
             end
 
             # Skip this initial solution if it does not extend far enough
+            idx === nothing && continue
+
+            ratio = (g.obj[idx] - final_cost) / final_cost * 100
+
+            
+
+            init = String(g.initial_solution[1])
+
+            if ratio > 10
+                println(ratio, file, init)
+            end
+            push!(get!(ratios, init, Float64[]), ratio)
+        end
+    end
+
+    return ratios
+end
+
+
+function compute_ratios_cost_overage_per_method(file_list)
+    ratios = OrderedDict{String, Vector{Float64}}()
+
+    for file in file_list
+        df = CSV.read(file, DataFrame)
+
+        final_cost = df.obj[end]
+        groups = groupby(df, :initial_solution; sort=false)
+
+        # For each solution method, find its own feasibility point and compute cost overage
+        for g in groups
+            # Find where this specific method first becomes feasible
+            idx = findfirst(x -> x < 1.03e-8, g.max_pshed)
+
+            # Skip if this method never becomes feasible
             if idx === nothing
                 continue
             end
 
+            # Compute cost overage at this method's own feasibility point
             ratio = (g.obj[idx] - final_cost) / final_cost * 100
 
-            init = g.initial_solution[1]
+            init = String(g.initial_solution[1])
 
-            
-
-            if !haskey(ratios, init)
-                ratios[init] = Float64[]
+            if ratio > 10
+                println(ratio, " ", file, " ", init)
             end
 
-            push!(ratios[init], ratio)
+            push!(get!(ratios, init, Float64[]), ratio)
         end
     end
 
@@ -309,7 +336,7 @@ function plot_flex_fraction_vs_generators(
     title!("Flex Generation Needed for Zero Load Shedding")
     ylims!(0, 1)
 
-    savefig(plt, savepath * ".png")
+    savefig(plt, savepath * ".svg")
 
     return plt
 end
